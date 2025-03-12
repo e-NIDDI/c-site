@@ -1,0 +1,197 @@
+/* General Styles */
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff;
+    color: #333333;
+}
+
+header {
+    background-color: #FFA500;
+    color: #ffffff;
+    padding: 15px 20px;
+    text-align: center;
+    position: relative;
+    font-size: 24px; /* Reduced header font size */
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+nav {
+    display: flex;
+    background-color: #FFA500;
+}
+
+nav a {
+    color: #ffffff;
+    text-decoration: none;
+    padding: 10px 20px;
+    display: block;
+}
+
+nav a:hover {
+    background-color: #FF8C00;
+}
+
+.hidden {
+    display: none;
+}
+
+.hamburger {
+    display: none;
+    cursor: pointer;
+    flex-direction: column;
+}
+
+.hamburger div {
+    width: 25px;
+    height: 3px;
+    background-color: #ffffff;
+    margin: 3px 0;
+}
+
+@media (max-width: 600px) {
+    .hamburger {
+        display: flex;
+    }
+
+    nav {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        position: absolute;
+        top: 50px; /* Adjusted top position */
+        left: 0;
+    }
+
+    nav.active {
+        display: flex;
+    }
+
+    nav a {
+        text-align: center;
+        padding: 15px;
+        border-top: 1px solid #FF8C00;
+    }
+
+    .content {
+        margin: 10px;
+        padding: 15px;
+    }
+
+    input[type="number"],
+    select {
+        margin-bottom: 10px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    button {
+        width: 100%;
+        padding: 15px;
+    }
+}
+
+/* Content Styles */
+.content {
+    padding: 20px;
+    margin: 20px;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    color: #FFA500;
+    margin-bottom: 10px;
+}
+
+p {
+    margin-bottom: 10px;
+}
+
+input[type="number"] {
+    padding: 10px;
+    margin-right: 20px; /* Increased spacing between inputs */
+    border-radius: 5px;
+    border: 1px solid #FFA500;
+}
+
+input[type="number"]:last-child {
+    margin-right: 0; /* Remove margin from the last input */
+}
+
+select {
+    padding: 10px;
+    margin-right: 20px; /* Increased spacing between inputs */
+    border-radius: 5px;
+    border: 1px solid #FFA500;
+}
+
+select:last-child {
+    margin-right: 0; /* Remove margin from the last select */
+}
+
+button {
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: none;
+    background-color: #FFA500;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #FF8C00;
+}
+
+#result {
+    color: #FFA500;
+    font-weight: bold;
+    margin-top: 20px;
+}
+
+#realtime-currencies p,
+#currency-values p {
+    background-color: #ffffff;
+    padding: 10px;
+    border: 1px solid #FFA500;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive Styles */
+@media (max-width: 600px) {
+    header {
+        padding: 10px 20px;
+        font-size: 20px; /* Reduced header font size for mobile */
+    }
+
+    .content {
+        margin: 10px;
+        padding: 15px;
+    }
+
+    input[type="number"],
+    select {
+        margin-bottom: 15px; /* Increased spacing between inputs */
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    button {
+        width: 100%;
+        padding: 15px;
+    }
+
+    #realtime-currencies p,
+    #currency-values p {
+        margin-bottom: 15px; /* Increased spacing between currency items */
+    }
+}
