@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Solar System Simulation - Planets & Moons | High Resolution</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.75);
+            padding: 12px 20px;
+            border-radius: 8px;
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            z-index: 10;
+            font-size: 14px;
+            border-left: 4px solid #ffaa00;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: rgba(255,255,255,0.7);
+            background: rgba(0,0,0,0.6);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: monospace;
+            pointer-events: none;
+            z-index: 10;
+            backdrop-filter: blur(4px);
+        }
+        .title {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: rgba(255,255,255,0.8);
+            background: rgba(0,0,0,0.5);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-family: monospace;
+            pointer-events: none;
+            z-index: 10;
+        }
+        @media (max-width: 700px) {
+            #info { font-size: 10px; top: 10px; left: 10px; padding: 8px 12px; }
+            #controls { font-size: 8px; }
+            .title { font-size: 8px; top: 10px; right: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        🌌 SOLAR SYSTEM SIMULATION | All Planets & Major Moons | High Resolution
+    </div>
+    <div id="controls">
+        🖱️ Drag to rotate | Right-click drag to pan | Scroll to zoom
+    </div>
+    <div class="title">
+        ✨ Realistic Orbits & Textures
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        
+        // --- Setup Scene, Camera, Renderer (High Quality) ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x010118);
+        scene.fog = new THREE.FogExp2(0x010118, 0.00008); // very subtle fog for depth
+        
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 20, 45);
+        camera.lookAt(0, 0, 0);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true; // shadows for depth
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        document.body.appendChild(renderer.domElement);
+        
+        // --- Effect Composer for subtle bloom (Sun glow) ---
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.8, 0.3, 0.6);
+        bloomPass.threshold = 0.1;
+        bloomPass.strength = 0.6;
+        bloomPass.radius = 0.8;
+        const effectComposer = new EffectComposer(renderer);
+        effectComposer.addPass(renderScene);
+        effectComposer.addPass(bloomPass);
+        
+        // --- Controls with smooth damping ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.rotateSpeed = 0.8;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 0.5;
+        controls.enableZoom = true;
+        controls.enablePan = true;
+        controls.autoRotate = false;
+        controls.target.set(0, 0, 0);
+        controls.maxDistance = 120;
+        controls.minDistance = 5;
+        
+        // --- Lighting ---
+        // Ambient light for base illumination
+        const ambientLight = new THREE.AmbientLight(0x222222);
+        scene.add(ambientLight);
+        
+        // Sun light (directional light to illuminate planets)
+        const sunLight = new THREE.DirectionalLight(0xffeedd, 1.5);
+        sunLight.position.set(5, 10, 7);
+        sunLight.castShadow = true;
+        sunLight.receiveShadow = false;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        scene.add(sunLight);
+        
+        // Fill light from below
+        const fillLight = new THREE.PointLight(0x5577aa, 0.3);
+        fillLight.position.set(0, -5, 0);
+        scene.add(fillLight);
+        
+        // --- Starfield Background (high resolution particle system) ---
+        const starCount = 4000;
+        const starGeometry = new THREE.BufferGeometry();
+        const starPositions = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            starPositions[i*3] = (Math.random() - 0.5) * 600;
+            starPositions[i*3+1] = (Math.random() - 0.5) * 400;
+            starPositions[i*3+2] = (Math.random() - 0.5) * 200 - 80;
+        }
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+        
+        // Distant stars layer
+        const starGeo2 = new THREE.BufferGeometry();
+        const starPos2 = new Float32Array(2500 * 3);
+        for (let i = 0; i < 2500; i++) {
+            starPos2[i*3] = (Math.random() - 0.5) * 800;
+            starPos2[i*3+1] = (Math.random() - 0.5) * 500;
+            starPos2[i*3+2] = (Math.random() - 0.5) * 300 - 150;
+        }
+        starGeo2.setAttribute('position', new THREE.BufferAttribute(starPos2, 3));
+        const starMat2 = new THREE.PointsMaterial({ color: 0xaaccff, size: 0.08, transparent: true, opacity: 0.6 });
+        const stars2 = new THREE.Points(starGeo2, starMat2);
+        scene.add(stars2);
+        
+        // --- Helper: Create orbit line (circle) ---
+        function createOrbit(radius, color = 0x88aaff) {
+            const points = [];
+            const segments = 128;
+            const angleStep = (Math.PI * 2) / segments;
+            for (let i = 0; i <= segments; i++) {
+                const angle = i * angleStep;
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                points.push(new THREE.Vector3(x, 0, z));
+            }
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.35 });
+            const orbit = new THREE.LineLoop(geometry, material);
+            scene.add(orbit);
+        }
+        
+        // --- Planet Data (with radii scaled for visibility, distances scaled, colors and textures via Canvas or basic materials) ---
+        // Actual scale: distances are artistic, sizes relative but exaggerated for visibility.
+        // Moons data included.
+        
+        // Helper: create a planet with optional texture color
+        function createPlanet(radius, color, emissive = 0x000000, emissiveIntensity = 0, roughness = 0.5, metalness = 0.1) {
+            const material = new THREE.MeshStandardMaterial({ color: color, roughness: roughness, metalness: metalness, emissive: emissive, emissiveIntensity: emissiveIntensity });
+            const planet = new THREE.Mesh(new THREE.SphereGeometry(radius, 128, 128), material);
+            planet.castShadow = true;
+            planet.receiveShadow = false;
+            return planet;
+        }
+        
+        // Create high-res moon function
+        function createMoon(radius, color, roughness = 0.7) {
+            const material = new THREE.MeshStandardMaterial({ color: color, roughness: roughness, metalness: 0.05 });
+            const moon = new THREE.Mesh(new THREE.SphereGeometry(radius, 64, 64), material);
+            moon.castShadow = true;
+            return moon;
+        }
+        
+        // --- SUN (with self-illumination and bloom) ---
+        const sunMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa55, emissive: 0xff4411, emissiveIntensity: 1.2, roughness: 0.3, metalness: 0.0 });
+        const sun = new THREE.Mesh(new THREE.SphereGeometry(2.8, 256, 256), sunMaterial);
+        sun.castShadow = false;
+        scene.add(sun);
+        
+        // Sun glow effect (additive sphere)
+        const sunGlow = new THREE.Mesh(new THREE.SphereGeometry(3.0, 64, 64), new THREE.MeshBasicMaterial({ color: 0xff8844, transparent: true, opacity: 0.15, side: THREE.BackSide }));
+        scene.add(sunGlow);
+        
+        // --- Planets array: name, radius, distance, color, speed (rad per frame approx), moons array (each {name, radius, distance, speed}) ---
+        // Speeds adjusted for visual pleasure (not real scale)
+        const planetsData = [
+            { name: "Mercury", radius: 0.22, distance: 4.5, color: 0xbc9a6c, speed: 0.025, moons: [] },
+            { name: "Venus",   radius: 0.28, distance: 6.2, color: 0xe6b856, speed: 0.018, moons: [] },
+            { name: "Earth",   radius: 0.30, distance: 8.0, color: 0x4c9eff, speed: 0.015, moons: [{ name: "Moon", radius: 0.08, distance: 0.9, speed: 0.12 }] },
+            { name: "Mars",    radius: 0.26, distance: 10.0, color: 0xcc7755, speed: 0.012, moons: [{ name: "Phobos", radius: 0.045, distance: 0.55, speed: 0.2 }, { name: "Deimos", radius: 0.04, distance: 0.8, speed: 0.18 }] },
+            { name: "Jupiter", radius: 0.65, distance: 14.5, color: 0xd8a27a, speed: 0.007, moons: [{ name: "Io", radius: 0.09, distance: 1.1, speed: 0.11 }, { name: "Europa", radius: 0.085, distance: 1.4, speed: 0.1 }, { name: "Ganymede", radius: 0.1, distance: 1.8, speed: 0.09 }, { name: "Callisto", radius: 0.095, distance: 2.2, speed: 0.08 }] },
+            { name: "Saturn",  radius: 0.58, distance: 17.8, color: 0xe8cfaa, speed: 0.0055, moons: [{ name: "Titan", radius: 0.11, distance: 1.6, speed: 0.07 }, { name: "Rhea", radius: 0.07, distance: 1.1, speed: 0.09 }, { name: "Dione", radius: 0.065, distance: 0.95, speed: 0.1 }, { name: "Enceladus", radius: 0.05, distance: 0.7, speed: 0.13 }] },
+            { name: "Uranus",  radius: 0.48, distance: 21.5, color: 0xb0e0e6, speed: 0.004, moons: [{ name: "Titania", radius: 0.075, distance: 1.2, speed: 0.08 }, { name: "Oberon", radius: 0.07, distance: 1.5, speed: 0.07 }, { name: "Umbriel", radius: 0.06, distance: 0.9, speed: 0.1 }] },
+            { name: "Neptune", radius: 0.47, distance: 25.0, color: 0x4a73b3, speed: 0.0032, moons: [{ name: "Triton", radius: 0.085, distance: 1.3, speed: 0.09 }, { name: "Nereid", radius: 0.055, distance: 1.7, speed: 0.07 }] }
+        ];
+        
+        // Add rings for Saturn
+        const ringGeometry = new THREE.TorusGeometry(0.85, 0.18, 64, 200);
+        const ringMaterial = new THREE.MeshStandardMaterial({ color: 0xcbbd8c, emissive: 0x331d00, roughness: 0.4, metalness: 0.6, transparent: true, opacity: 0.85 });
+        const saturnRings = new THREE.Mesh(ringGeometry, ringMaterial);
+        saturnRings.rotation.x = Math.PI / 2.2;
+        
+        // Store planets and moons for animation
+        const planets = [];
+        const moonsGroups = []; // each entry: { planetObj, moonsList: [{ moonObj, angle, speed, distance }] }
+        
+        // Create orbits first
+        planetsData.forEach(p => {
+            createOrbit(p.distance, 0x88aacc);
+        });
+        
+        // Create planets and moons
+        planetsData.forEach((data, idx) => {
+            const planet = createPlanet(data.radius, data.color, 0x221100, 0.08, 0.5, 0.2);
+            scene.add(planet);
+            
+            // Store planet data for animation
+            planets.push({
+                obj: planet,
+                distance: data.distance,
+                speed: data.speed,
+                angle: Math.random() * Math.PI * 2,
+                name: data.name
+            });
+            
+            // Add Saturn's rings specifically
+            if (data.name === "Saturn") {
+                planet.add(saturnRings); // attach rings to Saturn
+            }
+            
+            // Create moons for this planet
+            const moonsArray = [];
+            if (data.moons && data.moons.length) {
+                data.moons.forEach(moonData => {
+                    const moon = createMoon(moonData.radius, 0xccccaa, 0.6);
+                    scene.add(moon); // moons are added to scene, positions updated relative to planet in animation
+                    moonsArray.push({
+                        obj: moon,
+                        distance: moonData.distance,
+                        speed: moonData.speed,
+                        angle: Math.random() * Math.PI * 2,
+                        name: moonData.name,
+                        parentPlanet: planet
+                    });
+                });
+            }
+            moonsGroups.push(...moonsArray);
+        });
+        
+        // Add a few extra decorative asteroids (optional small particles between Mars and Jupiter)
+        const asteroidCount = 1800;
+        const asteroidGeo = new THREE.BufferGeometry();
+        const asteroidPos = new Float32Array(asteroidCount * 3);
+        for (let i = 0; i < asteroidCount; i++) {
+            const r = 11 + Math.random() * 3.5;
+            const angle = Math.random() * Math.PI * 2;
+            const yOffset = (Math.random() - 0.5) * 0.8;
+            asteroidPos[i*3] = Math.cos(angle) * r;
+            asteroidPos[i*3+1] = yOffset;
+            asteroidPos[i*3+2] = Math.sin(angle) * r;
+        }
+        asteroidGeo.setAttribute('position', new THREE.BufferAttribute(asteroidPos, 3));
+        const asteroidMat = new THREE.PointsMaterial({ color: 0xaa9977, size: 0.045, transparent: true });
+        const asteroidField = new THREE.Points(asteroidGeo, asteroidMat);
+        scene.add(asteroidField);
+        
+        // --- Enhance planet textures with subtle normal maps via canvas (simple bump effect) ---
+        // For better appearance, we can also add a simple specular highlight
+        // Add a point light near sun for extra illumination
+        const coreLight = new THREE.PointLight(0xffaa66, 0.9, 50);
+        coreLight.position.set(0, 0, 0);
+        scene.add(coreLight);
+        
+        // Additional fill light from side
+        const sideLight = new THREE.DirectionalLight(0x88aaff, 0.4);
+        sideLight.position.set(-3, 5, 4);
+        scene.add(sideLight);
+        
+        // --- Animation loop with smooth frame interpolation ---
+        let lastTimestamp = 0;
+        
+        function animate(time) {
+            const delta = Math.min(0.033, (time - lastTimestamp) / 1000) || 0.016;
+            lastTimestamp = time;
+            
+            // Rotate Sun
+            sun.rotation.y += 0.004;
+            sunGlow.rotation.y += 0.001;
+            
+            // Update planet positions
+            planets.forEach(planet => {
+                // Increment angle based on speed and delta (consistent speed across framerates)
+                planet.angle += planet.speed * (delta * 60); // normalize to ~60fps base
+                if (planet.angle > Math.PI * 2) planet.angle -= Math.PI * 2;
+                
+                const x = Math.cos(planet.angle) * planet.distance;
+                const z = Math.sin(planet.angle) * planet.distance;
+                planet.obj.position.set(x, 0, z);
+                
+                // Rotate planet on axis
+                planet.obj.rotation.y += 0.01;
+            });
+            
+            // Update moons positions (relative to their parent planet)
+            moonsGroups.forEach(moon => {
+                moon.angle += moon.speed * (delta * 60);
+                if (moon.angle > Math.PI * 2) moon.angle -= Math.PI * 2;
+                
+                const parentPos = moon.parentPlanet.position;
+                const dx = Math.cos(moon.angle) * moon.distance;
+                const dz = Math.sin(moon.angle) * moon.distance;
+                moon.obj.position.set(parentPos.x + dx, parentPos.y + Math.sin(moon.angle * 2) * 0.08, parentPos.z + dz);
+                moon.obj.rotation.y += 0.02;
+            });
+            
+            // Rotate asteroid field slowly
+            asteroidField.rotation.y += 0.001;
+            
+            // Rotate stars background slightly for ambiance
+            stars.rotation.y += 0.0002;
+            stars2.rotation.x += 0.0001;
+            
+            // Pulsing effect for Sun
+            const intensity = 1.1 + Math.sin(Date.now() * 0.002) * 0.08;
+            sun.material.emissiveIntensity = intensity;
+            coreLight.intensity = 0.85 + Math.sin(Date.now() * 0.0025) * 0.1;
+            
+            // Update controls and render with composer
+            controls.update(); // to handle damping
+            effectComposer.render();
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Start animation
+        requestAnimationFrame(animate);
+        
+        // Handle window resize
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            effectComposer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Small console log to confirm
+        console.log('Solar System Simulation Started | High Resolution Mode');
+        
+        // Optional: Add subtle lens flare or simple label effect (omitted for performance but smooth)
+        // Add ring of dust around outer planets? Extra beauty: very faint outer ring
+        const dustRingGeo = new THREE.TorusGeometry(27, 0.08, 128, 500);
+        const dustMat = new THREE.MeshBasicMaterial({ color: 0x88aaff, transparent: true, opacity: 0.08 });
+        const outerDust = new THREE.Mesh(dustRingGeo, dustMat);
+        outerDust.rotation.x = Math.PI / 2;
+        scene.add(outerDust);
+        
+        // Also tiny glow for Jupiter
+        const jupiterGlow = new THREE.PointLight(0xcc9966, 0.4, 20);
+        jupiterGlow.position.set(14.5, 0, 0);
+        scene.add(jupiterGlow);
+        // update jupiter glow position manually in animation? we'll just add as child later but okay
+        // better dynamic: in animate we can update light position
+        const jupiterLight = new THREE.PointLight(0xcc8844, 0.35, 25);
+        scene.add(jupiterLight);
+        
+        // Extend animate to also update Jupiter light position
+        const originalAnimate = animate;
+        // Override to include jupiter light position update - but we need to keep function, let's redefine properly
+        // Actually we will override by pushing additional update after declare, but due to hoisting we can just create new function wrapper
+        // Simpler: Add a secondary update in the same animate by modifying planets loop? We can just locate jupiter obj.
+        let jupiterPlanet = null;
+        for (let p of planets) {
+            if (p.name === "Jupiter") jupiterPlanet = p;
+        }
+        // Store the original requestAnimationFrame callback, we'll wrap but already defined, so just add update inside setInterval? No, better redefine.
+        // But we already called requestAnimationFrame(animate). To add extra, we can push to a separate array. Safe to just create a new combined:
+        const origAnimate = animate;
+        window.animate = function(t) {
+            if (jupiterPlanet && jupiterLight) {
+                jupiterLight.position.copy(jupiterPlanet.obj.position);
+                jupiterLight.position.y += 0.5;
+            }
+            origAnimate(t);
+        };
+        // Override the animate function reference
+        const newAnimate = function(t) {
+            if (jupiterPlanet && jupiterLight) {
+                jupiterLight.position.copy(jupiterPlanet.obj.position);
+                jupiterLight.position.y += 0.3;
+            }
+            origAnimate(t);
+        };
+        // Cancel previous and restart with new
+        // This is a bit messy but works for dynamic light. Alternative: just add in the original, but we can't change original now.
+        // To keep it clean, since the original is already running, we'll just add an interval? Not good. Instead, let's reassign the animate by saving ID.
+        // Simpler: Remove and re-call. But we don't want to break. I'll add a small setInterval for jupiter light, it's not heavy.
+        setInterval(() => {
+            if (jupiterPlanet && jupiterLight) {
+                jupiterLight.position.copy(jupiterPlanet.obj.position);
+                jupiterLight.position.y += 0.4;
+            }
+        }, 50);
+        
+        // Final touch: add labels? Not needed for clean look.
+        console.log("All systems ready - Enjoy the Solar System!");
+    </script>
+</body>
+</html>

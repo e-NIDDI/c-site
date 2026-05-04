@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Simulimi 3D i Vrimës së Zezë</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 16px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            pointer-events: none;
+            z-index: 10;
+            font-size: 14px;
+            border-left: 3px solid #ff4400;
+            font-weight: bold;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: rgba(255,255,255,0.6);
+            background: rgba(0,0,0,0.5);
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            font-family: monospace;
+        }
+        @media (max-width: 600px) {
+            #info { font-size: 10px; top: 10px; left: 10px; }
+            #controls { font-size: 9px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        🕳️ VRIMË E ZEZË | Efekti i thjerrëzimit gravitacional | Disku i akrecionit
+    </div>
+    <div id="controls">
+        🖱️ Mbani klik majtas për të rrotulluar | Djathtas për të lëvizur | Scroll për zoom
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        
+        // --- Skeda, Kamera, Renderuesi ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x010118);
+        scene.fog = new THREE.FogExp2(0x010118, 0.0006);
+        
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 3.5, 14);
+        camera.lookAt(0, 0, 0);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.toneMappingExposure = 1.3;
+        document.body.appendChild(renderer.domElement);
+        
+        // --- Efekti Bloom për shkëlqim ---
+        const renderScenePass = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.3, 0.85);
+        bloomPass.threshold = 0.1;
+        bloomPass.strength = 0.9;
+        bloomPass.radius = 0.5;
+        const effectComposer = new EffectComposer(renderer);
+        effectComposer.addPass(renderScenePass);
+        effectComposer.addPass(bloomPass);
+        
+        // --- Kontrollat (orbit) ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.rotateSpeed = 0.8;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 0.5;
+        controls.enableZoom = true;
+        controls.enablePan = true;
+        controls.autoRotate = false;
+        controls.target.set(0, 0, 0);
+        
+        // --- Drita e ambientit për të parë pak skajet e diskut ---
+        const ambientLight = new THREE.AmbientLight(0x222222);
+        scene.add(ambientLight);
+        // Drita e vogël për theksim
+        const pointLight = new THREE.PointLight(0xaa6644, 0.5, 30);
+        pointLight.position.set(2, 3, 4);
+        scene.add(pointLight);
+        
+        // ========== 1. SFERA E ZEZE (Vrima e zezë - event horizonti) ==========
+        // Material i zi absolut me pak shkëlqim për theks
+        const blackHoleCore = new THREE.Mesh(
+            new THREE.SphereGeometry(1.35, 64, 64),
+            new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.4, metalness: 0.7, emissive: 0x110000, emissiveIntensity: 0.15 })
+        );
+        scene.add(blackHoleCore);
+        
+        // Efekt i hollë i gravitetit - një sferë e tejdukshme rreth saj (si "foton sferë")
+        const photonGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(1.85, 48, 48),
+            new THREE.MeshPhongMaterial({ color: 0xff4400, transparent: true, opacity: 0.08, side: THREE.BackSide })
+        );
+        scene.add(photonGlow);
+        
+        // Unazë e hollë e kuqe (rrethi i fundit i dritës para se të zhduket)
+        const innerRing = new THREE.Mesh(
+            new THREE.TorusGeometry(1.65, 0.035, 128, 256),
+            new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0x442200, emissiveIntensity: 0.9 })
+        );
+        scene.add(innerRing);
+        
+        // ========== 2. DISKU I AKRECIONIT (me grimca dhe unaza të ndezura) ==========
+        // Disku kryesor i rrafshët me teksturë gradient duke përdorur torus të shumëfishtë
+        const diskMaterial = new THREE.MeshStandardMaterial({ color: 0xff6622, emissive: 0x882200, emissiveIntensity: 0.7, roughness: 0.3, metalness: 0.8, transparent: true, opacity: 0.95 });
+        const mainDisk = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.18, 128, 256), diskMaterial);
+        mainDisk.rotation.x = Math.PI / 2.2; // pak e prirur për efekt artistik
+        scene.add(mainDisk);
+        
+        const outerDisk = new THREE.Mesh(new THREE.TorusGeometry(3.7, 0.22, 128, 320), diskMaterial);
+        outerDisk.rotation.x = Math.PI / 2.2;
+        scene.add(outerDisk);
+        
+        const outerDisk2 = new THREE.Mesh(new THREE.TorusGeometry(4.9, 0.28, 128, 380), diskMaterial);
+        outerDisk2.rotation.x = Math.PI / 2.2;
+        scene.add(outerDisk2);
+        
+        // Unazë e hollë me ngjyrë të kuqe të ndezur
+        const hotRing = new THREE.Mesh(
+            new THREE.TorusGeometry(3.2, 0.09, 128, 400),
+            new THREE.MeshStandardMaterial({ color: 0xff2200, emissive: 0xff3300, emissiveIntensity: 0.85 })
+        );
+        hotRing.rotation.x = Math.PI / 2.2;
+        scene.add(hotRing);
+        
+        // Unazë e jashtme më e zbehtë
+        const coldOuter = new THREE.Mesh(
+            new THREE.TorusGeometry(5.8, 0.15, 128, 420),
+            new THREE.MeshStandardMaterial({ color: 0xff8866, emissive: 0x442200, emissiveIntensity: 0.4, transparent: true, opacity: 0.7 })
+        );
+        coldOuter.rotation.x = Math.PI / 2.2;
+        scene.add(coldOuter);
+        
+        // ========== 3. GRIMCAT E NDRIÇUARA (sistemi i pluhurit rrotullues) ==========
+        const particleCount = 6500;
+        const particlesGeometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const colorsArray = new Float32Array(particleCount * 3);
+        
+        // Krijimi i grimcave në formë disku rreth vrimës së zezë
+        for (let i = 0; i < particleCount; i++) {
+            // Rrezja nga 2.2 deri në 6.5
+            const radius = 2.2 + Math.random() * 4.5;
+            const angle = Math.random() * Math.PI * 2;
+            // Lartësia e vogël për efekt disku (shumica pranë rrafshit)
+            const yOffset = (Math.random() - 0.5) * 0.45 * (1 - (radius - 2.2) / 5.5);
+            
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            const y = yOffset;
+            
+            positions[i*3] = x;
+            positions[i*3+1] = y;
+            positions[i*3+2] = z;
+            
+            // Ngjyrat: brenda më të nxehta (portokalli/kuqe), jashtë më të ftohta (blu/e verdhë)
+            const t = (radius - 2.2) / 4.8; // 0 brenda, 1 jashtë
+            const r = 1.0 - t * 0.5;        // e kuqe zvogëlohet
+            const g = 0.3 + t * 0.5;        // jeshile rritet
+            const b = 0.1 + t * 0.6;         // blu rritet
+            colorsArray[i*3] = r;
+            colorsArray[i*3+1] = g;
+            colorsArray[i*3+2] = b;
+        }
+        
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+        
+        const particleMaterial = new THREE.PointsMaterial({ size: 0.055, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.9 });
+        const particleSystem = new THREE.Points(particlesGeometry, particleMaterial);
+        scene.add(particleSystem);
+        
+        // ========== 4. GJETHA SHTESË: Unaza të holla me shkëlqim dhe thjerrëzimi ==========
+        // Unazë e ndritshme e hollë për efekt "foton ring"
+        const photonRing = new THREE.Mesh(
+            new THREE.TorusGeometry(2.0, 0.045, 128, 360),
+            new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: 0xff4411, emissiveIntensity: 1.2 })
+        );
+        photonRing.rotation.x = Math.PI / 2;
+        scene.add(photonRing);
+        
+        // Unazë e dytë e pjerrët
+        const tiltedRing = new THREE.Mesh(
+            new THREE.TorusGeometry(4.2, 0.07, 128, 400),
+            new THREE.MeshStandardMaterial({ color: 0xff8844, emissive: 0x552200, emissiveIntensity: 0.6 })
+        );
+        tiltedRing.rotation.x = 0.9;
+        tiltedRing.rotation.z = 0.3;
+        scene.add(tiltedRing);
+        
+        // ========== 5. SFERA E JASHTME E THJERRËZIMIT (efekt halo gravitational lensing) ==========
+        const lensGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(2.45, 64, 64),
+            new THREE.MeshBasicMaterial({ color: 0xff8844, transparent: true, opacity: 0.035, side: THREE.BackSide, blending: THREE.AdditiveBlending })
+        );
+        scene.add(lensGlow);
+        
+        // Një shtresë tjetër shkëlqimi të thjeshtë
+        const outerGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(3.0, 48, 48),
+            new THREE.MeshBasicMaterial({ color: 0xff6633, transparent: true, opacity: 0.02, side: THREE.BackSide })
+        );
+        scene.add(outerGlow);
+        
+        // ========== 6. YJET SFOND (për bukuri) ==========
+        const starCount = 1800;
+        const starGeo = new THREE.BufferGeometry();
+        const starPos = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            starPos[i*3] = (Math.random() - 0.5) * 400;
+            starPos[i*3+1] = (Math.random() - 0.5) * 200;
+            starPos[i*3+2] = (Math.random() - 0.5) * 150 - 50;
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending });
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+        
+        // Shtresa e dytë yjesh më të largët
+        const starGeoBack = new THREE.BufferGeometry();
+        const starPosBack = new Float32Array(1200 * 3);
+        for (let i = 0; i < 1200; i++) {
+            starPosBack[i*3] = (Math.random() - 0.5) * 500;
+            starPosBack[i*3+1] = (Math.random() - 0.5) * 300;
+            starPosBack[i*3+2] = (Math.random() - 0.5) * 200 - 100;
+        }
+        starGeoBack.setAttribute('position', new THREE.BufferAttribute(starPosBack, 3));
+        const starMatBack = new THREE.PointsMaterial({ color: 0xaaccff, size: 0.09, transparent: true, opacity: 0.5 });
+        const starsBack = new THREE.Points(starGeoBack, starMatBack);
+        scene.add(starsBack);
+        
+        // ========== 7. ANIMACIONI DHE ROTACIONI ==========
+        let time = 0;
+        
+        // Për rrotullimin e grimcave dhe unazave
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.012;
+            
+            // Rrotullimi i diskut kryesor dhe unazave për efekt dinamik
+            mainDisk.rotation.z += 0.008;
+            outerDisk.rotation.z += 0.006;
+            outerDisk2.rotation.z += 0.005;
+            hotRing.rotation.z += 0.012;
+            coldOuter.rotation.z += 0.004;
+            tiltedRing.rotation.z += 0.007;
+            photonRing.rotation.z += 0.01;
+            innerRing.rotation.z += 0.015;
+            
+            // Rrotullimi i sistemit të grimcave (efekt i rrjedhës së materies)
+            particleSystem.rotation.y += 0.003;
+            particleSystem.rotation.x = Math.sin(time * 0.2) * 0.03;
+            
+            // Pulsim i lehtë i shkëlqimit të unazave
+            const intensity = 0.7 + Math.sin(time * 4) * 0.15;
+            hotRing.material.emissiveIntensity = 0.85 + Math.sin(time * 5) * 0.2;
+            innerRing.material.emissiveIntensity = 0.9 + Math.sin(time * 4.5) * 0.2;
+            photonRing.material.emissiveIntensity = 1.1 + Math.sin(time * 6) * 0.2;
+            
+            // Rrotullimi i sferës së fotonit (efekt vizual)
+            photonGlow.rotation.x += 0.002;
+            photonGlow.rotation.y += 0.003;
+            lensGlow.rotation.y += 0.001;
+            
+            // Rrotullim i lehtë i yjeve për atmosferë
+            stars.rotation.y += 0.0005;
+            starsBack.rotation.x += 0.0003;
+            
+            // Kontrolli i kamerës përditësohet
+            controls.update(); // për orbitat interaktive
+            
+            // Render me efekt compositor për bloom
+            effectComposer.render();
+        }
+        
+        animate();
+        
+        // Përshtatja e madhësisë së dritares
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            effectComposer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Pak informacion në konsolë
+        console.log('Simulimi 3D i Vrimës së Zezë është duke u ekzekutuar!');
+    </script>
+</body>
+</html>
